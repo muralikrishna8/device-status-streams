@@ -14,8 +14,12 @@ import org.apache.kafka.streams.processor.api.Record;
 import org.apache.kafka.streams.state.KeyValueIterator;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.apache.kafka.streams.state.Stores;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class DeviceStatusTopology {
+  private static final Logger log = LoggerFactory.getLogger(DeviceStatusProcessorSupplier.class);
 
   public static final String OFFLINE_TIMER_STORE = "offline-timer-store";
 
@@ -26,15 +30,18 @@ public class DeviceStatusTopology {
     Topology topology = new Topology();
 
     // Add a persistent key-value store for offline timers
-    topology.addStateStore(
-        Stores.keyValueStoreBuilder(
-            Stores.persistentKeyValueStore(OFFLINE_TIMER_STORE),
-            keySerde,
-            org.apache.kafka.common.serialization.Serdes.Long()
-        )
-    );
+//    topology.addStateStore(
+//        Stores.keyValueStoreBuilder(
+//            Stores.persistentKeyValueStore(OFFLINE_TIMER_STORE),
+//            keySerde,
+//            org.apache.kafka.common.serialization.Serdes.Long()
+//        )
+//    );
 
-    topology.addSource("device-status-input", inputTopic);
+    topology.addSource("device-status-input",
+        keySerde.deserializer(),
+        valueSerde.deserializer(),
+        inputTopic);
     topology.addProcessor("device-status-processor", new DeviceStatusProcessorSupplier(outputTopic), "device-status-input");
     topology.addStateStore(
         Stores.keyValueStoreBuilder(
@@ -42,10 +49,9 @@ public class DeviceStatusTopology {
             keySerde,
             org.apache.kafka.common.serialization.Serdes.Long()
         ),
-        "device-status-processor" // Attach the store to the processor
+        "device-status-processor"
     );
     topology.addSink("offline-finalized-sink", outputTopic, keySerde.serializer(), valueSerde.serializer(), "device-status-processor");
-
 
     return topology;
   }
@@ -67,6 +73,8 @@ public class DeviceStatusTopology {
         public void init(ProcessorContext<String, DeviceEvent> context) {
           this.context = context;
           this.store = context.getStateStore(OFFLINE_TIMER_STORE);
+
+          log.info("Initialized device-status-processor; state store '{}' acquired", OFFLINE_TIMER_STORE);
 
           // Schedule punctuation every 60 seconds
           context.schedule(Duration.ofSeconds(60), PunctuationType.WALL_CLOCK_TIME, timestamp -> {
@@ -95,12 +103,14 @@ public class DeviceStatusTopology {
           long now = System.currentTimeMillis();
 
           if ("OFFLINE".equalsIgnoreCase(status)) {
-            // Set expiry for 15 minutes later
-            store.put(deviceId, now + 900_000L);
+            long expiry = now + 65_000L;
+            store.put(deviceId, expiry);
+            log.info("Registered OFFLINE timer for {} expiring at {}", deviceId, expiry);
           } else if ("ONLINE".equalsIgnoreCase(status)) {
-            // Cancel any pending offline timer
             store.delete(deviceId);
+            log.info("Cleared timer for {} due to ONLINE");
           }
+
         }
 
         @Override

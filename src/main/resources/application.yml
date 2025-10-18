@@ -14,8 +14,8 @@ spring:
         default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
         default.value.serde: org.springframework.kafka.support.serializer.JsonSerde
         spring.json.value.default.type: com.example.streams.model.DeviceEvent
+        auto.offset.reset: earliest # added to consume existing messages when starting fresh
 
-# Spring Cloud Stream destinations per requirements (used as topic names)
 cloud:
   stream:
     bindings:

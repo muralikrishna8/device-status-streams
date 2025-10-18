@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: device-status-processor
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    streams:
+      application-id: device-status-processor
+      properties:
+        default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+        default.value.serde: org.springframework.kafka.support.serializer.JsonSerde
+        spring.json.value.default.type: com.example.streams.model.DeviceEvent
+
+# Spring Cloud Stream destinations per requirements (used as topic names)
+cloud:
+  stream:
+    bindings:
+      input:
+        destination: device-status-input
+      output:
+        destination: device-status-output

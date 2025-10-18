@@ -1,0 +1,14 @@
+/target/
+.idea
+*.iml
+*.iws
+.DS_Store
+/out
+/logs
+*.log
+/temp
+*.tmp
+/build
+.env
+.env.local
+/dist
